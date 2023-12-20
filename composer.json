@@ -1,0 +1,26 @@
+{
+  "name": "phplib/openswoole-server-bundle",
+  "type": "symfony-bundle",
+  "description": "Symfony OpenSwoole HTTP Server Bundle",
+  "license": "MIT",
+  "require": {
+    "php": ">=7.2",
+    "upscale/swoole-blackfire": "^4.0",
+    "symfony/dependency-injection": "^6.0",
+    "symfony/config": "^6.0",
+    "symfony/http-kernel": "^6.0",
+    "symfony/event-dispatcher": "^6.0",
+    "symfony/console": "^6.0",
+    "symfony/proxy-manager-bridge": ">=6.0"
+  },
+  "require-dev": {
+    "openswoole/ide-helper": "^22.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "OpenSwooleServerBundle\\": "src/"
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
