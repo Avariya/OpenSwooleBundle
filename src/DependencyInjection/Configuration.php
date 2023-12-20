@@ -21,7 +21,7 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('swoole_server');
+        $treeBuilder = new TreeBuilder('open_swoole_server');
         $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
@@ -33,7 +33,7 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('pid_file')
                             ->cannotBeEmpty()
-                            ->defaultValue(getenv('HOME') . '/openswoole_server.pid')
+                            ->defaultValue(getenv('HOME') . '/open_swoole_server.pid')
                         ->end()
                         ->scalarNode('log_file')
                             ->cannotBeEmpty()
