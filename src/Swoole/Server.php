@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Swoole;
 
+use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use Psr\Log\LoggerInterface;
 use OpenSwoole\Process;
-use OpenSwooleServerBundle\Exception\SwooleException;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Upscale\Swoole\Blackfire\Profiler;
 
@@ -178,7 +178,7 @@ class Server
 
         Process::kill($pid, 0);
 
-        return !swoole_errno();
+        return !Util::getLastErrorCode();
     }
 
     /**
@@ -293,5 +293,10 @@ class Server
         $profiler->instrument($this->server);
 
         $this->server->start();
+    }
+
+    public function stats(int $mode = 0)
+    {
+        return $this->server->stats($mode);
     }
 }

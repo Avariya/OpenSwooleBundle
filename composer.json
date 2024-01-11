@@ -11,7 +11,8 @@
     "symfony/http-kernel": "^6.0",
     "symfony/event-dispatcher": "^6.0",
     "symfony/console": "^6.0",
-    "symfony/proxy-manager-bridge": ">=6.0"
+    "symfony/proxy-manager-bridge": ">=6.0",
+    "openswoole/core": "^22.1"
   },
   "suggest": {
     "ext-openswoole": "^22.0"
