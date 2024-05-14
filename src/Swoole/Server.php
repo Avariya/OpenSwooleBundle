@@ -1,17 +1,20 @@
 <?php
+
 declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Swoole;
 
+use OpenSwoole\Process;
+use OpenSwoole\Runtime;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use Psr\Log\LoggerInterface;
-use OpenSwoole\Process;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Component\HttpKernel\TerminableInterface;
 use Upscale\Swoole\Blackfire\Profiler;
 
 /**
- * Class Server
+ * Class Server.
  */
 class Server
 {
@@ -31,12 +34,17 @@ class Server
     private $options;
 
     /**
+     * @var int
+     */
+    private $hookFlags;
+
+    /**
      * @var \OpenSwoole\HTTP\Server
      */
     private $server;
 
     /**
-     * @var KernelInterface
+     * @var KernelInterface&TerminableInterface
      */
     private $kernel;
 
@@ -45,33 +53,22 @@ class Server
      */
     private $logger;
 
-    /**
-     * @param string          $host
-     * @param int             $port
-     * @param array           $options
-     * @param KernelInterface $kernel
-     * @param LoggerInterface $logger
-     */
-    public function __construct(string $host, int $port, array $options, KernelInterface $kernel, LoggerInterface $logger)
+    public function __construct(string $host, int $port, array $options, int $hookFlags, KernelInterface $kernel, LoggerInterface $logger)
     {
         $this->host = $host;
         $this->port = $port;
         $this->options = $options;
+        $this->hookFlags = $hookFlags;
         $this->kernel = $kernel;
         $this->logger = $logger;
     }
 
-    /**
-     * @return string
-     */
     public function getHost(): string
     {
         return $this->host;
     }
 
     /**
-     * @param string $host
-     *
      * @return $this
      */
     public function setHost(string $host): self
@@ -81,17 +78,12 @@ class Server
         return $this;
     }
 
-    /**
-     * @return int
-     */
     public function getPort(): int
     {
         return $this->port;
     }
 
     /**
-     * @param int $port
-     *
      * @return $this
      */
     public function setPort(int $port): self
@@ -103,17 +95,13 @@ class Server
 
     /**
      * Get swoole configuration option value.
-     *
-     * @param string $key
-     *
-     * @return mixed
      */
     public function getOption(string $key)
     {
         $option = $this->options[$key];
 
         if (!$option) {
-            throw new \InvalidArgumentException(sprintf("Parameter not found: %s", $key));
+            throw new \InvalidArgumentException(sprintf('Parameter not found: %s', $key));
         }
 
         return $option;
@@ -121,8 +109,6 @@ class Server
 
     /**
      * Start and configure swoole server.
-     *
-     * @param callable $cb
      */
     public function start(callable $cb): void
     {
@@ -134,7 +120,6 @@ class Server
     /**
      * Stop the swoole server.
      *
-     * @return bool
      * @throws OpenSwooleException
      */
     public function stop(): bool
@@ -142,7 +127,7 @@ class Server
         $kill = Process::kill($this->getPid());
 
         if (!$kill) {
-            throw new OpenSwooleException("Swoole server not stopped!");
+            throw new OpenSwooleException('Swoole server not stopped!');
         }
 
         return $kill;
@@ -151,7 +136,6 @@ class Server
     /**
      * Reload swoole server.
      *
-     * @return bool
      * @throws OpenSwooleException
      */
     public function reload(): bool
@@ -159,15 +143,12 @@ class Server
         $reload = Process::kill($this->getPid(), SIGUSR1);
 
         if (!$reload) {
-            throw new OpenSwooleException("Swoole server not reloaded!");
+            throw new OpenSwooleException('Swoole server not reloaded!');
         }
 
         return $reload;
     }
 
-    /**
-     * @return bool
-     */
     public function isRunning(): bool
     {
         $pid = $this->getPid();
@@ -182,8 +163,6 @@ class Server
     }
 
     /**
-     * @param int $workerId
-     *
      * @return bool
      */
     public function stopWorker(int $workerId = -1)
@@ -195,9 +174,6 @@ class Server
         return $this->server->stop();
     }
 
-    /**
-     * @return int
-     */
     private function getPid(): int
     {
         $file = $this->getPidFile();
@@ -206,7 +182,7 @@ class Server
             return 0;
         }
 
-        $pid = (int)file_get_contents($file);
+        $pid = (int) file_get_contents($file);
 
         if (!$pid) {
             $this->removePidFile();
@@ -219,8 +195,6 @@ class Server
 
     /**
      * Get pid file.
-     *
-     * @return string
      */
     private function getPidFile(): string
     {
@@ -253,18 +227,16 @@ class Server
     private function configureSwooleServer(): void
     {
         $this->server->set($this->options);
+        Runtime::enableCoroutine($this->getOption('enable_coroutine'), $this->hookFlags);
     }
 
-    /**
-     * @param callable $cb
-     */
     private function symfonyBridge(callable $cb): void
     {
-        $this->server->on('start', function () use ($cb) {
+        $this->server->on('start', static function () use ($cb) {
             $cb('Server started!');
         });
 
-        //request
+        // request
         $this->server->on('request', function (\OpenSwoole\Http\Request $swRequest, \OpenSwoole\Http\Response $swResponse) {
             try {
                 $sfRequest = Request::toSymfony($swRequest);
@@ -275,7 +247,7 @@ class Server
                 Response::toSwoole($swResponse, $sfResponse);
             } catch (\Throwable $throwable) {
                 $this->logger->error($throwable->getMessage(), [
-                    'class' => get_class($throwable),
+                    'class' => $throwable::class,
                     'file' => $throwable->getFile(),
                     'line' => $throwable->getLine(),
                     'trace' => $throwable->getTrace(),
