@@ -63,4 +63,5 @@ options:
     group: ~
     ssl_cert_file: ~
     ssl_key_file: ~
+    package_max_length: ~
 ```
