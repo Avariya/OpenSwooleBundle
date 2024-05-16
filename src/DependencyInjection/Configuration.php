@@ -14,6 +14,8 @@ class Configuration implements ConfigurationInterface
 {
     private const DEFAULT_BUFFER_OUTPUT_SIZE = 8388608;
 
+    private const PACKAGE_MAX_LENGTH = 2 * 1024 * 1024;
+
     /**
      * Generates the configuration tree builder.
      *
@@ -80,6 +82,9 @@ class Configuration implements ConfigurationInterface
                         ->end()
                         ->variableNode('buffer_output_size')
                             ->defaultValue(self::DEFAULT_BUFFER_OUTPUT_SIZE)
+                        ->end()
+                        ->variableNode('package_max_length')
+                            ->defaultValue(self::PACKAGE_MAX_LENGTH)
                         ->end()
                         ->variableNode('user')->end()
                         ->variableNode('group')->end()
