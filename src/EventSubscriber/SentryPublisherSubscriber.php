@@ -20,7 +20,7 @@ class SentryPublisherSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::FINISH_REQUEST => [
+            KernelEvents::TERMINATE => [
                 ['flush', 10],
             ],
         ];

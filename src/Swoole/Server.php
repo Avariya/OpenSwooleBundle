@@ -242,12 +242,14 @@ class Server
                 $sfRequest = Request::toSymfony($swRequest);
                 $sfResponse = $this->kernel->handle($sfRequest);
 
-                $this->kernel->terminate($sfRequest, $sfResponse);
-
                 Response::toSwoole($swResponse, $sfResponse);
+
+                if ($this->kernel instanceof TerminableInterface) {
+                    $this->kernel->terminate($sfRequest, $sfResponse);
+                }
             } catch (\Throwable $throwable) {
                 $this->logger->error($throwable->getMessage(), [
-                    'class' => $throwable::class,
+                    'class' => get_class($throwable),
                     'file' => $throwable->getFile(),
                     'line' => $throwable->getLine(),
                     'trace' => $throwable->getTrace(),
