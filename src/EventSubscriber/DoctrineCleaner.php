@@ -30,19 +30,16 @@ class DoctrineCleaner implements EventSubscriberInterface
     /**
      * @return array
      */
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::FINISH_REQUEST => [
+            KernelEvents::TERMINATE => [
                 ['clear', 10],
             ],
         ];
     }
 
-    /**
-     * @param FinishRequestEvent $event
-     */
-    public function clear(FinishRequestEvent $event)
+    public function clear(): void
     {
         foreach ($this->registry->getManagers() as $name => $manager) {
             $manager->isOpen()

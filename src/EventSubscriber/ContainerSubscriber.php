@@ -23,7 +23,7 @@ class ContainerSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::FINISH_REQUEST => [
+            KernelEvents::TERMINATE => [
                 ['clear', 10],
             ],
         ];
