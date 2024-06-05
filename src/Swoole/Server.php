@@ -249,17 +249,19 @@ class Server
                 }
             } catch (\Throwable $throwable) {
                 $this->logger->error($throwable->getMessage(), [
-                    'class' => get_class($throwable),
+                    'class' => $throwable::class,
                     'file' => $throwable->getFile(),
                     'line' => $throwable->getLine(),
                     'trace' => $throwable->getTrace(),
                 ]);
 
-                $swResponse->status(500);
-                $swResponse->end(json_encode([
-                    'code' => 500,
-                    'message' => $throwable->getMessage(),
-                ]));
+                if ($swResponse->isWritable()) {
+                    $swResponse->status(500);
+                    $swResponse->end(json_encode([
+                        'code' => 500,
+                        'message' => $throwable->getMessage(),
+                    ]));
+                }
             }
         });
 
