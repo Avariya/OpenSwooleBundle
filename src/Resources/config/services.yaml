@@ -11,7 +11,7 @@ services:
 
   OpenSwooleServerBundle\Swoole\Server:
     public: true
-    arguments: [ "", "", "", "", "@kernel", "@logger" ]
+    arguments: [ "", "", "", "", "@kernel", "@logger", null, true ]
 
   OpenSwooleServerBundle\Command\:
     resource: '../../Command'

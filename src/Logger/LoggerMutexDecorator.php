@@ -1,0 +1,98 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenSwooleServerBundle\Logger;
+
+use Monolog\Formatter\FormatterInterface;
+use Monolog\Handler\FormattableHandlerInterface;
+use Monolog\Handler\HandlerInterface;
+use Monolog\Handler\ProcessableHandlerInterface;
+use Monolog\LogRecord;
+use Monolog\ResettableInterface;
+use OpenSwooleServerBundle\Swoole\CoroutineHelper;
+use OpenSwooleServerBundle\Swoole\Mutex\MutexFactory;
+use OpenSwooleServerBundle\Swoole\Mutex\MutexInterface;
+
+final class LoggerMutexDecorator implements HandlerInterface, ProcessableHandlerInterface, ResettableInterface, FormattableHandlerInterface
+{
+    private MutexInterface $mutex;
+
+    public function __construct(
+        private readonly HandlerInterface&ProcessableHandlerInterface&ResettableInterface&FormattableHandlerInterface $handler,
+    ) {
+    }
+
+    public function isHandling(LogRecord $record): bool
+    {
+        return $this->handler->isHandling($record);
+    }
+
+    public function handle(LogRecord $record): bool
+    {
+        return $this->once(fn () => $this->handler->handle($record));
+    }
+
+    public function handleBatch(array $records): void
+    {
+        $this->once(fn () => $this->handler->handleBatch($records));
+    }
+
+    public function close(): void
+    {
+        $this->once(fn () => $this->handler->close());
+    }
+
+    public function pushProcessor(callable $callback): HandlerInterface
+    {
+        return $this->handler->popProcessor($callback);
+    }
+
+    public function popProcessor(): callable
+    {
+        return $this->handler->popProcessor();
+    }
+
+    public function reset(): void
+    {
+        $this->once(fn () => $this->handler->reset());
+    }
+
+    public function setFormatter(FormatterInterface $formatter): HandlerInterface
+    {
+        $this->handler->setFormatter($formatter);
+
+        return $this;
+    }
+
+    public function getFormatter(): FormatterInterface
+    {
+        return $this->handler->getFormatter();
+    }
+
+    private function getMutex(): MutexInterface|null
+    {
+        if (!CoroutineHelper::inCoroutine()) {
+            return null;
+        }
+
+        return $this->mutex ??= MutexFactory::createByCoroutineContext();
+    }
+
+    private function once(callable $cb): mixed
+    {
+        $mutex = $this->getMutex();
+        if ($mutex === null) {
+            return $cb();
+        }
+
+        $this->mutex->lock();
+        try {
+            $res = $cb();
+        } finally {
+            $this->mutex->unlock();
+        }
+
+        return $res;
+    }
+}

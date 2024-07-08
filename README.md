@@ -65,3 +65,16 @@ options:
     ssl_key_file: ~
     package_max_length: ~
 ```
+### Tests
+To run the test suite, you need to install the dependencies and run the test suite:
+
+```bash
+composer install --ignore-platform-reqs
+
+docker pull fozzyua/docker-php-openswoole-base-image:v1.0.1-php8.3.1-openswoole22.1.2
+```
+Run the test suite:
+
+```bash
+docker run -v ./:/var/www/project/ --workdir /var/www/project/ --entrypoint composer  fozzyua/docker-php-openswoole-base-image:v1.0.1-php8.3.1-openswoole22.1.2 test:run
+```

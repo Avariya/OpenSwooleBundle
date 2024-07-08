@@ -6,25 +6,42 @@
   "require": {
     "php": ">=7.2",
     "upscale/swoole-blackfire": "^4.0",
-    "symfony/dependency-injection": "^6.0",
-    "symfony/config": "^6.0",
-    "symfony/http-kernel": "^6.0",
-    "symfony/event-dispatcher": "^6.0",
-    "symfony/console": "^6.0",
-    "symfony/proxy-manager-bridge": ">=6.0",
-    "openswoole/core": "^22.1"
+    "symfony/dependency-injection": "^6.0|^7.0",
+    "symfony/config": "^6.0|^7.0",
+    "symfony/http-kernel": "^6.0|^7.0",
+    "symfony/event-dispatcher": "^6.0|^7.0",
+    "symfony/console": "^6.0|7.0",
+    "openswoole/core": "^22.1",
+    "monolog/monolog": "^2.0|^3.0"
   },
   "suggest": {
     "ext-openswoole": "^22.0"
   },
   "require-dev": {
-    "openswoole/ide-helper": "^22.0"
+    "openswoole/ide-helper": "^22.0",
+    "phpunit/phpunit": "^11.2"
   },
   "autoload": {
     "psr-4": {
       "OpenSwooleServerBundle\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "OpenSwooleServerBundle\\Tests\\": "tests/"
+    }
+  },
   "minimum-stability": "dev",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "scripts": {
+    "test:coverage": [
+      "php -d extension=pcov.so -d pcov.enabled=1 vendor/bin/phpunit --coverage-text --coverage-html ./reports/coverage --colors=never --coverage-cobertura=./reports/coverage/cobertura.xml --coverage-clover=./reports/coverage/clover.xml --log-junit=./reports/coverage/junit.xml"
+    ],
+    "test:run": [
+      "php vendor/bin/phpunit --color=always"
+    ],
+    "test:debug": {
+      "command": "debug vendor/bin/phpunit --color=always"
+    }
+  }
 }

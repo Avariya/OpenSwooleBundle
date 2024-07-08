@@ -31,6 +31,7 @@ class Configuration implements ConfigurationInterface
                 ->scalarNode('host')->defaultValue('0.0.0.0')->end()
                 ->integerNode('port')->defaultValue(80)->end()
                 ->scalarNode('hook_flags')->defaultValue(0)->end()
+                ->booleanNode('use_sync_worker')->defaultValue(true)->end()
                 ->arrayNode('options')
                     ->addDefaultsIfNotSet()
                     ->children()
