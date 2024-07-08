@@ -9,6 +9,7 @@ use OpenSwoole\Coroutine\Channel;
 use OpenSwoole\Coroutine\Scheduler;
 use OpenSwoole\Runtime;
 use OpenSwooleServerBundle\Exception\BatchRunException;
+use OpenSwooleServerBundle\Swoole\CoroutineHelper;
 use OpenSwooleServerBundle\ValueObject\Result;
 use Throwable;
 
@@ -44,19 +45,17 @@ final class BatchRunner
     public function withHookFlags(int $hookFlags): self
     {
         $this->ensureNotStarted();
-        $self = clone $this;
-        $self->hookFlags = $hookFlags;
+        $this->hookFlags = $hookFlags;
 
-        return $self;
+        return $this;
     }
 
     public function withSetRuntimeHooks(bool $set): self
     {
         $this->ensureNotStarted();
-        $self = clone $this;
-        $self->setRuntimeHooks = $set;
+        $this->setRuntimeHooks = $set;
 
-        return $self;
+        return $this;
     }
 
     /**
@@ -96,7 +95,7 @@ final class BatchRunner
 
         $this->setHookFlags();
 
-        if (self::inCoroutine()) {
+        if (CoroutineHelper::inCoroutine()) {
             $this->startWaitGroup();
         } else {
             $this->startScheduler();
@@ -172,11 +171,6 @@ final class BatchRunner
 
     private function ensureNotStarted(): void
     {
-        assert(!$this->started, 'Runner is already running.');
-    }
-
-    private static function inCoroutine(): bool
-    {
-        return -1 !== Coroutine::getCid();
+        assert(!$this->started, 'Runner is already running or has been finished.');
     }
 }

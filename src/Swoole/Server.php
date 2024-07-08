@@ -9,6 +9,7 @@ use OpenSwoole\Runtime;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpKernel\TerminableInterface;
 use Upscale\Swoole\Blackfire\Profiler;
@@ -39,6 +40,11 @@ class Server
     private $hookFlags;
 
     /**
+     * @var bool
+     */
+    private $useSyncWorker;
+
+    /**
      * @var \OpenSwoole\HTTP\Server
      */
     private $server;
@@ -53,14 +59,31 @@ class Server
      */
     private $logger;
 
-    public function __construct(string $host, int $port, array $options, int $hookFlags, KernelInterface $kernel, LoggerInterface $logger)
-    {
+    /**
+     * @var WorkerMutexPool|null
+     */
+    private $workerMutexPool;
+
+    public function __construct(
+        string $host,
+        int $port,
+        array $options,
+        int $hookFlags,
+        HttpKernelInterface $kernel,
+        LoggerInterface $logger,
+        WorkerMutexPool|null $workerMutexPool = null,
+        bool $useSyncWorker = true,
+    ) {
         $this->host = $host;
         $this->port = $port;
         $this->options = $options;
         $this->hookFlags = $hookFlags;
         $this->kernel = $kernel;
         $this->logger = $logger;
+        $this->workerMutexPool = null === $workerMutexPool && CoroutineHelper::openswooleEnabled()
+                ? new WorkerMutexPool()
+                : $workerMutexPool;
+        $this->useSyncWorker = $useSyncWorker;
     }
 
     public function getHost(): string
@@ -98,23 +121,23 @@ class Server
      */
     public function getOption(string $key)
     {
-        $option = $this->options[$key];
-
-        if (!$option) {
+        if (!array_key_exists($key, $this->options)) {
             throw new \InvalidArgumentException(sprintf('Parameter not found: %s', $key));
         }
 
-        return $option;
+        return $this->options[$key];
     }
 
     /**
      * Start and configure swoole server.
      */
-    public function start(callable $cb): void
-    {
+    public function start(
+        callable $onStart,
+        callable|null $onShutdown = null,
+    ): void {
         $this->createServer();
         $this->configureSwooleServer();
-        $this->symfonyBridge($cb);
+        $this->symfonyBridge($onStart, $onShutdown);
     }
 
     /**
@@ -230,14 +253,34 @@ class Server
         Runtime::enableCoroutine($this->getOption('enable_coroutine'), $this->hookFlags);
     }
 
-    private function symfonyBridge(callable $cb): void
+    private function symfonyBridge(callable $onStart, callable|null $onShutdown = null): void
     {
-        $this->server->on('start', static function () use ($cb) {
-            $cb('Server started!');
+        $this->server->on('start', static function () use ($onStart) {
+            $onStart('Server started!');
         });
+
+        if ($onShutdown !== null) {
+            $this->server->on('shutdown', static function () use ($onShutdown) {
+                $onShutdown();
+            });
+        }
+
+        if ($this->useSyncWorker && CoroutineHelper::inCoroutine()) {
+            $this->server->on('WorkerStart', function (\OpenSwoole\HTTP\Server $server, int $workerId) {
+                $this->needSyncWorker() && $this->workerMutexPool?->create($workerId);
+            });
+
+            $this->server->on('WorkerStop', function (\OpenSwoole\HTTP\Server $server, int $workerId) {
+                $this->needSyncWorker() && $this->workerMutexPool?->remove($workerId);
+            });
+        }
 
         // request
         $this->server->on('request', function (\OpenSwoole\Http\Request $swRequest, \OpenSwoole\Http\Response $swResponse) {
+            $mutex = $this->needSyncWorker() ? $this->workerMutexPool?->getOrCreate($this->server->getWorkerId()) : null;
+
+            $mutex?->lock();
+
             try {
                 $sfRequest = Request::toSymfony($swRequest);
                 $sfResponse = $this->kernel->handle($sfRequest);
@@ -262,6 +305,8 @@ class Server
                         'message' => $throwable->getMessage(),
                     ]));
                 }
+            } finally {
+                $mutex?->unlock();
             }
         });
 
@@ -274,5 +319,10 @@ class Server
     public function stats(int $mode = 0)
     {
         return $this->server->stats($mode);
+    }
+
+    public function needSyncWorker(): bool
+    {
+        return $this->useSyncWorker && CoroutineHelper::inCoroutine();
     }
 }

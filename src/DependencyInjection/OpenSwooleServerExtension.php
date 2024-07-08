@@ -34,5 +34,6 @@ class OpenSwooleServerExtension extends Extension
         $definition->replaceArgument(1, $config['port']);
         $definition->replaceArgument(2, $config['options']);
         $definition->replaceArgument(3, $config['hook_flags']);
+        $definition->replaceArgument(7, $config['use_sync_worker']);
     }
 }

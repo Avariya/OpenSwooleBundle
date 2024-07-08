@@ -1,3 +1,6 @@
 .idea
 vendor
 composer.lock
+test.log
+.phpunit.cache
+reports
