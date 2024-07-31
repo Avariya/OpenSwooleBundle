@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Tests\TestCase\Swoole;
 
+use Closure;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
@@ -11,8 +12,12 @@ use OpenSwoole\Atomic;
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
 use OpenSwooleServerBundle\Batch\BatchRunner;
+use OpenSwooleServerBundle\Bridge\Messenger\OpenSwooleServerTaskTransport;
+use OpenSwooleServerBundle\Swoole\Handler\MessengerSendTaskHandler;
+use OpenSwooleServerBundle\Swoole\Handler\NoopTaskFinishHandler;
 use OpenSwooleServerBundle\Swoole\Server;
 use OpenSwooleServerBundle\Swoole\WorkerMutexPool;
+use OpenSwooleServerBundle\Tests\Stub\ContainerStub;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -22,6 +27,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\TerminableInterface;
+use Symfony\Component\Messenger\Handler\HandlersLocator;
+use Symfony\Component\Messenger\MessageBus;
+use Symfony\Component\Messenger\Middleware\HandleMessageMiddleware;
+use Symfony\Component\Messenger\Middleware\SendMessageMiddleware;
+use Symfony\Component\Messenger\TraceableMessageBus;
+use Symfony\Component\Messenger\Transport\Sender\SendersLocator;
 
 final class ServerTest extends TestCase
 {
@@ -244,6 +256,136 @@ final class ServerTest extends TestCase
         ];
     }
 
+    public function testTaskWorker(): void
+    {
+        $serverReady = new Atomic(0);
+        $serverExit = new Atomic(0);
+
+        $logger = $this->createLogger();
+
+        $container = new ContainerStub();
+
+        $sendMiddleware = new SendMessageMiddleware(
+            new SendersLocator(
+                [
+                    '*' => [
+                        OpenSwooleServerTaskTransport::class,
+                    ],
+                ],
+                $container,
+            ),
+        );
+
+        $bus = new TraceableMessageBus(
+            new MessageBus([
+                $sendMiddleware,
+                new HandleMessageMiddleware(
+                    new HandlersLocator([
+                        '*' => [
+                            new TestMessageHandler($logger),
+                        ],
+                    ]),
+                ),
+            ]),
+        );
+
+        $process = new Process(
+            function () use ($serverReady, $serverExit, $logger, $container, $bus) {
+                $kernel = new class($logger, null) implements HttpKernelInterface, TerminableInterface {
+                    public function __construct(
+                        private LoggerInterface $logger,
+                        private Closure|null $handler = null,
+                    ) {
+                    }
+
+                    public function handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response
+                    {
+                        if ($this->handler !== null) {
+                            return ($this->handler)($request, $type, $catch);
+                        }
+
+                        return new Response('hello world');
+                    }
+
+                    public function terminate(Request $request, Response $response)
+                    {
+                    }
+
+                    public function setHandler(callable $handler): void
+                    {
+                        $this->handler = $handler;
+                    }
+                };
+                $server = new Server(
+                    '0.0.0.0',
+                    8888,
+                    [
+                        'enable_coroutine' => false,
+                        'worker_num' => 1,
+                        'pid_file' => '/tmp/openswoole_server.pid',
+                        'dispatch_mode' => 3,
+                        'task_worker_num' => 1,
+                    ],
+                    0,
+                    $kernel,
+                    $logger,
+                    null,
+                    true,
+                    new MessengerSendTaskHandler($bus),
+                    new NoopTaskFinishHandler(),
+                );
+
+                $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, $logger));
+
+                $httpHandler = Closure::fromCallable(static function (
+                    Request $request,
+                    int $type = HttpKernelInterface::MAIN_REQUEST,
+                    bool $catch = true,
+                ) use ($bus, $logger): Response {
+                    $bus->dispatch(new TestMessage('hello world'));
+
+                    $logger->info('Dispatched message');
+
+                    return new Response('hello world');
+                });
+                $kernel->setHandler($httpHandler);
+
+                $server->start(
+                    static function (string $s) use ($serverReady) {
+                        $serverReady->wakeup();
+                    },
+                    static function () use ($serverExit) {
+                        $serverExit->wakeup();
+                    },
+                );
+            },
+        );
+
+        $serverProcessPid = $process->start();
+        $serverReady->wait();
+
+        try {
+            $output = $this->makeRequest();
+        } catch (\Throwable $e) {
+            $this->fail($e->getMessage());
+        } finally {
+            $this->cleanUp($process, $serverProcessPid, $serverExit);
+        }
+
+        $actualLogContent = file_get_contents('test.log');
+
+        self::assertEquals(
+            <<<TEXT
+        Dispatched message
+        Handled message: hello world
+
+        TEXT,
+            $actualLogContent,
+        );
+
+        self::assertEquals('hello world', $output);
+    }
+
     private function cleanUp(Process $process, int $serverProcessPid, Atomic $serverExit): void
     {
         $process->kill($serverProcessPid);
@@ -282,5 +424,27 @@ final class ServerTest extends TestCase
         );
 
         return $logger;
+    }
+}
+
+final class TestMessage
+{
+    public function __construct(
+        public readonly string $message,
+    ) {
+    }
+}
+
+final class TestMessageHandler
+{
+    public function __construct(
+        private LoggerInterface $logger,
+    ) {
+    }
+
+    public function __invoke(TestMessage $message): void
+    {
+        usleep(100000);
+        $this->logger->info('Handled message: ' . $message->message);
     }
 }
