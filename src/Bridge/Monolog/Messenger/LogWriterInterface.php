@@ -6,5 +6,5 @@ namespace OpenSwooleServerBundle\Bridge\Monolog\Messenger;
 
 interface LogWriterInterface
 {
-    public function write(LogDTO $logDTO): void;
+    public function write(LogMessageDTO $dto): void;
 }

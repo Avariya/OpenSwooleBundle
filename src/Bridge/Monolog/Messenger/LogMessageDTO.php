@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Bridge\Monolog\Messenger;
 
-final class LogDTO
+final class LogMessageDTO
 {
+    /**
+     * @param array<mixed> $records
+     */
     public function __construct(
-        public readonly mixed $data,
+        public readonly array $records,
     ) {
     }
 }

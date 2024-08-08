@@ -14,10 +14,10 @@ final class LogWriteHandler
     ) {
     }
 
-    public function __invoke(LogDTO $logDTO): void
+    public function __invoke(LogMessageDTO $dto): void
     {
         foreach ($this->writers as $writer) {
-            $writer->write($logDTO);
+            $writer->write($dto);
         }
     }
 }
