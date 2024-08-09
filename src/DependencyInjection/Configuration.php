@@ -32,6 +32,7 @@ class Configuration implements ConfigurationInterface
                 ->integerNode('port')->defaultValue(80)->end()
                 ->scalarNode('hook_flags')->defaultValue(0)->end()
                 ->booleanNode('use_sync_worker')->defaultValue(true)->end()
+                ->booleanNode('use_server_task_messenger')->defaultValue(false)->end()
                 ->arrayNode('options')
                     ->addDefaultsIfNotSet()
                     ->children()

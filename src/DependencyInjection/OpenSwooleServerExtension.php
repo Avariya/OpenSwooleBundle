@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\DependencyInjection;
 
+use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
+use OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface;
 use OpenSwooleServerBundle\Swoole\Server;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Class OpenSwooleServerExtension.
@@ -35,5 +38,10 @@ class OpenSwooleServerExtension extends Extension
         $definition->replaceArgument(2, $config['options']);
         $definition->replaceArgument(3, $config['hook_flags']);
         $definition->replaceArgument(7, $config['use_sync_worker']);
+
+        if ($config['use_server_task_messenger']) {
+            $definition->replaceArgument(8, new Reference(TaskHandlerInterface::class));
+            $definition->replaceArgument(9, new Reference(TaskFinishHandlerInterface::class));
+        }
     }
 }
