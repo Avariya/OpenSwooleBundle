@@ -352,6 +352,6 @@ class Server
 
     public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int
     {
-        return $this->server->task($data, $dstWorkerId, $finishCallback);
+        return $this->server?->task($data, $dstWorkerId, $finishCallback) ?? 0;
     }
 }
