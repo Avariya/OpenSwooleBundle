@@ -76,6 +76,11 @@ class Server
      */
     private $taskFinishHandler;
 
+    /**
+     * @var bool
+     */
+    private $taskWorkerRunning = false;
+
     public function __construct(
         string $host,
         int $port,
@@ -353,5 +358,10 @@ class Server
     public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int
     {
         return $this->server?->task($data, $dstWorkerId, $finishCallback) ?? 0;
+    }
+
+    public function isCreated(): bool
+    {
+        return isset($this->server);
     }
 }

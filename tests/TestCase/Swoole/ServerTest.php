@@ -34,6 +34,7 @@ use Symfony\Component\Messenger\Middleware\HandleMessageMiddleware;
 use Symfony\Component\Messenger\Middleware\SendMessageMiddleware;
 use Symfony\Component\Messenger\TraceableMessageBus;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocator;
+use Symfony\Component\Messenger\Transport\Sync\SyncTransport;
 
 final class ServerTest extends TestCase
 {
@@ -335,7 +336,7 @@ final class ServerTest extends TestCase
                     new NoopTaskFinishHandler(),
                 );
 
-                $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, $logger));
+                $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, 'sync'));
 
                 $httpHandler = Closure::fromCallable(static function (
                     Request $request,
@@ -384,6 +385,101 @@ final class ServerTest extends TestCase
         );
 
         self::assertEquals('hello world', $output);
+    }
+
+    public function testTaskWorkerFallback(): void
+    {
+        $serverReady = new Atomic(0);
+        $serverExit = new Atomic(0);
+
+        $logger = $this->createLogger();
+
+        $container = new ContainerStub();
+
+        $sendMiddleware = new SendMessageMiddleware(
+            new SendersLocator(
+                [
+                    '*' => [
+                        OpenSwooleServerTaskTransport::class,
+                        SyncTransport::class,
+                    ],
+                ],
+                $container,
+            ),
+        );
+
+        $bus = new TraceableMessageBus(
+            new MessageBus([
+                $sendMiddleware,
+                new HandleMessageMiddleware(
+                    new HandlersLocator([
+                        '*' => [
+                            new TestMessageHandler($logger),
+                        ],
+                    ]),
+                ),
+            ]),
+        );
+
+        $kernel = new class($logger, null) implements HttpKernelInterface, TerminableInterface {
+            public function __construct(
+                private LoggerInterface $logger,
+                private Closure|null $handler = null,
+            ) {
+            }
+
+            public function handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response
+            {
+                if ($this->handler !== null) {
+                    return ($this->handler)($request, $type, $catch);
+                }
+
+                return new Response('hello world');
+            }
+
+            public function terminate(Request $request, Response $response)
+            {
+            }
+
+            public function setHandler(callable $handler): void
+            {
+                $this->handler = $handler;
+            }
+        };
+
+        $server = new Server(
+            '0.0.0.0',
+            8888,
+            [
+                'enable_coroutine' => false,
+                'worker_num' => 1,
+                'pid_file' => '/tmp/openswoole_server.pid',
+                'dispatch_mode' => 3,
+                'task_worker_num' => 1,
+            ],
+            0,
+            $kernel,
+            $logger,
+            null,
+            true,
+            new MessengerSendTaskHandler($bus),
+            new NoopTaskFinishHandler(),
+        );
+
+        $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, 'sync'));
+        $container->set(SyncTransport::class, new SyncTransport($bus));
+
+        $bus->dispatch(new TestMessage('hello world'));
+
+        $actualLogContent = file_get_contents('test.log');
+
+        self::assertEquals(
+            <<<TEXT
+        Handled message: hello world
+
+        TEXT,
+            $actualLogContent,
+        );
     }
 
     private function cleanUp(Process $process, int $serverProcessPid, Atomic $serverExit): void
