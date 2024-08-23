@@ -8,7 +8,6 @@ use OpenSwooleServerBundle\Swoole\Server;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 use Symfony\Component\Messenger\Stamp\SentStamp;
-use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use Symfony\Component\Messenger\Transport\TransportInterface;
 
 final readonly class OpenSwooleServerTaskTransport implements TransportInterface
@@ -23,15 +22,17 @@ final readonly class OpenSwooleServerTaskTransport implements TransportInterface
 
     public function send(Envelope $envelope): Envelope
     {
-        if (!$this->server->isCreated()) {
-            return $envelope->with(new TransportNamesStamp([$this->fallbackTransportName]));
-        }
-
         /** @var SentStamp|null $sentStamp */
         $sentStamp = $envelope->last(SentStamp::class);
         $alias = $sentStamp === null ? self::DEFAULT_TRANSPORT_NAME : $sentStamp->getSenderAlias() ?? $sentStamp->getSenderClass();
 
-        $this->server->task($envelope->with(new ReceivedStamp($alias)));
+        $envelope = $envelope->with(new ReceivedStamp($alias));
+
+        if (!$this->server->isCreated()) {
+            return $envelope;
+        }
+
+        $this->server->task($envelope);
 
         return $envelope;
     }
