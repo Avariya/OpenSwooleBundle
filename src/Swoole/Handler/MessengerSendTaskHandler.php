@@ -6,6 +6,7 @@ namespace OpenSwooleServerBundle\Swoole\Handler;
 
 use OpenSwoole\Server;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Throwable;
 
 final class MessengerSendTaskHandler implements TaskHandlerInterface
 {
@@ -16,6 +17,10 @@ final class MessengerSendTaskHandler implements TaskHandlerInterface
 
     public function handle(Server $server, int $taskId, int $reactorId, mixed $data): void
     {
-        $this->messenger->dispatch($data);
+        try {
+            $this->messenger->dispatch($data);
+        } catch (Throwable $e) {
+            error_log(sprintf("Failed to dispatch task #%d.\nReason: %s.\nTrace: %s.", $taskId, $e->getMessage(), $e->getTraceAsString()));
+        }
     }
 }
