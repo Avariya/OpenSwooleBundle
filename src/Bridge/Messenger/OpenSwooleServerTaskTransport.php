@@ -6,6 +6,7 @@ namespace OpenSwooleServerBundle\Bridge\Messenger;
 
 use OpenSwooleServerBundle\Swoole\Server;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 use Symfony\Component\Messenger\Stamp\SentStamp;
 use Symfony\Component\Messenger\Transport\TransportInterface;
@@ -16,6 +17,7 @@ final readonly class OpenSwooleServerTaskTransport implements TransportInterface
 
     public function __construct(
         private Server $server,
+        private MessageBusInterface $messageBus,
     ) {
     }
 
@@ -28,7 +30,7 @@ final readonly class OpenSwooleServerTaskTransport implements TransportInterface
         $envelope = $envelope->with(new ReceivedStamp($alias));
 
         if (!$this->server->isCreated()) {
-            return $envelope;
+            return $this->messageBus->dispatch($envelope);
         }
 
         $this->server->task($envelope);

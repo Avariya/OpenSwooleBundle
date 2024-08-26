@@ -336,7 +336,7 @@ final class ServerTest extends TestCase
                     new NoopTaskFinishHandler(),
                 );
 
-                $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server));
+                $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, $bus));
 
                 $httpHandler = Closure::fromCallable(static function (
                     Request $request,
@@ -401,7 +401,6 @@ final class ServerTest extends TestCase
                 [
                     '*' => [
                         OpenSwooleServerTaskTransport::class,
-                        SyncTransport::class,
                     ],
                 ],
                 $container,
@@ -466,7 +465,7 @@ final class ServerTest extends TestCase
             new NoopTaskFinishHandler(),
         );
 
-        $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server));
+        $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, $bus));
         $container->set(SyncTransport::class, new SyncTransport($bus));
 
         $bus->dispatch(new TestMessage('hello world'));
