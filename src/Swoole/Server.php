@@ -289,9 +289,7 @@ class Server
         }
 
         if ($onShutdown !== null) {
-            $this->server->on('shutdown', static function () use ($onShutdown) {
-                $onShutdown();
-            });
+            $this->server->on('shutdown', $onShutdown);
         }
 
         if ($this->useSyncWorker && CoroutineHelper::inCoroutine()) {

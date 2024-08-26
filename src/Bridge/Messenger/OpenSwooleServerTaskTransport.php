@@ -16,7 +16,6 @@ final readonly class OpenSwooleServerTaskTransport implements TransportInterface
 
     public function __construct(
         private Server $server,
-        private string $fallbackTransportName,
     ) {
     }
 
