@@ -6,6 +6,7 @@ namespace OpenSwooleServerBundle\Swoole;
 
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
+use OpenSwoole\Server\Task;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
@@ -281,7 +282,7 @@ class Server
         });
 
         if ($this->taskHandler !== null) {
-            $this->server->on('task', fn (\OpenSwoole\HTTP\Server $server, int $taskId, int $reactorId, mixed $data) => $this->taskHandler->handle($this->server, $taskId, $reactorId, $data));
+            $this->server->on('task', fn (\OpenSwoole\HTTP\Server $server, Task $task) => $this->taskHandler->handle($this->server, $task));
         }
 
         if ($this->taskFinishHandler !== null) {
