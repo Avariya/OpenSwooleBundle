@@ -34,7 +34,6 @@ use Symfony\Component\Messenger\Middleware\HandleMessageMiddleware;
 use Symfony\Component\Messenger\Middleware\SendMessageMiddleware;
 use Symfony\Component\Messenger\TraceableMessageBus;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocator;
-use Symfony\Component\Messenger\Transport\Sync\SyncTransport;
 
 final class ServerTest extends TestCase
 {
@@ -468,7 +467,6 @@ final class ServerTest extends TestCase
         );
 
         $container->set(OpenSwooleServerTaskTransport::class, new OpenSwooleServerTaskTransport($server, $bus));
-        $container->set(SyncTransport::class, new SyncTransport($bus));
 
         $bus->dispatch(new TestMessage('hello world'));
 
