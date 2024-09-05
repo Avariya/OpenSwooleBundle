@@ -6,8 +6,11 @@ namespace OpenSwooleServerBundle\Swoole;
 
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
+use OpenSwoole\Server\Task;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
+use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
+use OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -64,6 +67,21 @@ class Server
      */
     private $workerMutexPool;
 
+    /**
+     * @var TaskHandlerInterface|null
+     */
+    private $taskHandler;
+
+    /**
+     * @var TaskFinishHandlerInterface|null
+     */
+    private $taskFinishHandler;
+
+    /**
+     * @var bool
+     */
+    private $taskWorkerRunning = false;
+
     public function __construct(
         string $host,
         int $port,
@@ -73,6 +91,8 @@ class Server
         LoggerInterface $logger,
         WorkerMutexPool|null $workerMutexPool = null,
         bool $useSyncWorker = true,
+        TaskHandlerInterface|null $taskHandler = null,
+        TaskFinishHandlerInterface|null $taskFinishHandler = null,
     ) {
         $this->host = $host;
         $this->port = $port;
@@ -84,6 +104,8 @@ class Server
                 ? new WorkerMutexPool()
                 : $workerMutexPool;
         $this->useSyncWorker = $useSyncWorker;
+        $this->taskHandler = $taskHandler;
+        $this->taskFinishHandler = $taskFinishHandler;
     }
 
     public function getHost(): string
@@ -259,10 +281,16 @@ class Server
             $onStart('Server started!');
         });
 
+        if ($this->taskHandler !== null) {
+            $this->server->on('task', fn (\OpenSwoole\HTTP\Server $server, Task $task) => $this->taskHandler->handle($this->server, $task));
+        }
+
+        if ($this->taskFinishHandler !== null) {
+            $this->server->on('finish', fn (\OpenSwoole\HTTP\Server $server, int $taskId, mixed $data) => $this->taskFinishHandler->handle($this->server, $taskId, $data));
+        }
+
         if ($onShutdown !== null) {
-            $this->server->on('shutdown', static function () use ($onShutdown) {
-                $onShutdown();
-            });
+            $this->server->on('shutdown', $onShutdown);
         }
 
         if ($this->useSyncWorker && CoroutineHelper::inCoroutine()) {
@@ -324,5 +352,15 @@ class Server
     public function needSyncWorker(): bool
     {
         return $this->useSyncWorker && CoroutineHelper::inCoroutine();
+    }
+
+    public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int
+    {
+        return $this->server?->task($data, $dstWorkerId, $finishCallback) ?? 0;
+    }
+
+    public function isCreated(): bool
+    {
+        return isset($this->server);
     }
 }

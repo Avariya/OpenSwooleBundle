@@ -11,7 +11,7 @@ services:
 
   OpenSwooleServerBundle\Swoole\Server:
     public: true
-    arguments: [ "", "", "", "", "@kernel", "@logger", null, true ]
+    arguments: [ "", "", "", "", "@kernel", "@logger", null, true, null, null ]
 
   OpenSwooleServerBundle\Command\:
     resource: '../../Command'
@@ -30,3 +30,17 @@ services:
     class: OpenSwooleServerBundle\EventSubscriber\AMQPReconnectSubscriber
     tags:
       - { name: kernel.event_subscriber }
+  
+  openswoole_server_bundle.server_task_messenger_handler:
+    class: OpenSwooleServerBundle\Swoole\Handler\MessengerSendTaskHandler
+  
+  openswoole_server_bundle.server_task_noop_finish_handler:
+    class: OpenSwooleServerBundle\Swoole\Handler\NoopTaskFinishHandler
+
+  OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface:
+    alias: openswoole_server_bundle.server_task_messenger_handler
+    public: true
+
+  OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface:
+    alias: openswoole_server_bundle.server_task_noop_finish_handler
+    public: true
