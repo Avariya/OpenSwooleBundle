@@ -8,9 +8,16 @@ use OpenSwoole\Coroutine;
 use OpenSwoole\Coroutine\Channel;
 use OpenSwoole\Coroutine\Scheduler;
 use OpenSwoole\Runtime;
+use OpenSwooleServerBundle\Event\BatchRunner\BatchRunnerEnded;
+use OpenSwooleServerBundle\Event\BatchRunner\BatchRunnerItemEndedSuccessfully;
+use OpenSwooleServerBundle\Event\BatchRunner\BatchRunnerItemEndedWithException;
+use OpenSwooleServerBundle\Event\BatchRunner\BatchRunnerItemStarted;
+use OpenSwooleServerBundle\Event\BatchRunner\BatchRunnerStarted;
 use OpenSwooleServerBundle\Exception\BatchRunException;
+use OpenSwooleServerBundle\Exception\BatchRunnerStartedException;
 use OpenSwooleServerBundle\Swoole\CoroutineHelper;
 use OpenSwooleServerBundle\ValueObject\Result;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
 final class BatchRunner
@@ -29,6 +36,7 @@ final class BatchRunner
         private array $callables,
         private int $hookFlags = Runtime::HOOK_ALL,
         private bool $setRuntimeHooks = true,
+        private EventDispatcherInterface|null $eventDispatcher = null,
     ) {
         $this->callablesCount = count($callables);
         $this->prevHookFlags = Runtime::getHookFlags();
@@ -40,6 +48,14 @@ final class BatchRunner
     public static function fromCallables(array $callables): self
     {
         return new self(new Channel(count($callables)), $callables);
+    }
+
+    public function withDispatcher(EventDispatcherInterface $eventDispatcher): self
+    {
+        $this->ensureNotStarted();
+        $this->eventDispatcher = $eventDispatcher;
+
+        return $this;
     }
 
     public function withHookFlags(int $hookFlags): self
@@ -91,6 +107,7 @@ final class BatchRunner
     private function start(): void
     {
         $this->ensureNotStarted();
+        $this->eventDispatcher?->dispatch(new BatchRunnerStarted($this));
         $this->started = true;
 
         $this->setHookFlags();
@@ -102,6 +119,8 @@ final class BatchRunner
         }
 
         $this->setPrevHookFlags();
+
+        $this->eventDispatcher?->dispatch(new BatchRunnerEnded($this));
     }
 
     private function startWaitGroup(): void
@@ -145,11 +164,24 @@ final class BatchRunner
      */
     private function wrapCallable(Channel $resultChannel, string|int $key, callable $callable): callable
     {
-        return static function () use ($resultChannel, $key, $callable): void {
+        $eventDispatcher = $this->eventDispatcher;
+        $batchRunner = $this;
+
+        return static function () use ($resultChannel, $key, $callable, $eventDispatcher, $batchRunner): void {
+            $eventDispatcher?->dispatch(new BatchRunnerItemStarted($batchRunner, $key));
+
             try {
                 $result = Result::fromValue($callable());
+
+                $eventDispatcher?->dispatch(
+                    new BatchRunnerItemEndedSuccessfully($batchRunner, $key)
+                );
             } catch (Throwable $e) {
                 $result = Result::fromThrowable($e);
+
+                $eventDispatcher?->dispatch(
+                    new BatchRunnerItemEndedWithException($batchRunner, $key, $e)
+                );
             }
             $resultChannel->push([$key, $result]);
         };
@@ -171,6 +203,8 @@ final class BatchRunner
 
     private function ensureNotStarted(): void
     {
-        assert(!$this->started, 'Runner is already running or has been finished.');
+        if ($this->started) {
+            throw new BatchRunnerStartedException();
+        }
     }
 }
