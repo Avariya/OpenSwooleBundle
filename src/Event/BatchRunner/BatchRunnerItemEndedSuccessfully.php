@@ -12,6 +12,6 @@ final class BatchRunnerItemEndedSuccessfully extends BatchRunnerItemEnded
         public readonly BatchRunner $batchRunner,
         public readonly string $key,
     ) {
-        parent::__construct($this->batchRunner, $this->key, true);
+        parent::__construct($batchRunner, $key, true);
     }
 }

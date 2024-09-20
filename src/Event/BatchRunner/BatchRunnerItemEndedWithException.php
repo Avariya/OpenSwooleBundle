@@ -14,6 +14,6 @@ final class BatchRunnerItemEndedWithException extends BatchRunnerItemEnded
         public readonly string $key,
         public readonly Throwable $exception
     ) {
-        parent::__construct($this->batchRunner, $this->key, false);
+        parent::__construct($batchRunner, $key, false);
     }
 }
