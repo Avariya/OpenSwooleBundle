@@ -168,19 +168,19 @@ final class BatchRunner
         $batchRunner = $this;
 
         return static function () use ($resultChannel, $key, $callable, $eventDispatcher, $batchRunner): void {
-            $eventDispatcher?->dispatch(new BatchRunnerItemStarted($batchRunner, $key));
+            $eventDispatcher?->dispatch(new BatchRunnerItemStarted($batchRunner, (string)$key));
 
             try {
                 $result = Result::fromValue($callable());
 
                 $eventDispatcher?->dispatch(
-                    new BatchRunnerItemEndedSuccessfully($batchRunner, $key)
+                    new BatchRunnerItemEndedSuccessfully($batchRunner, (string)$key)
                 );
             } catch (Throwable $e) {
                 $result = Result::fromThrowable($e);
 
                 $eventDispatcher?->dispatch(
-                    new BatchRunnerItemEndedWithException($batchRunner, $key, $e)
+                    new BatchRunnerItemEndedWithException($batchRunner, (string)$key, $e)
                 );
             }
             $resultChannel->push([$key, $result]);
