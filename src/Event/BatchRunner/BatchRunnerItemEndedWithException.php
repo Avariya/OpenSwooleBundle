@@ -10,8 +10,8 @@ use Throwable;
 final class BatchRunnerItemEndedWithException extends BatchRunnerItemEnded
 {
     public function __construct(
-        public readonly BatchRunner $batchRunner,
-        public readonly string $key,
+        BatchRunner $batchRunner,
+        string $key,
         public readonly Throwable $exception
     ) {
         parent::__construct($batchRunner, $key, false);

@@ -9,8 +9,8 @@ use OpenSwooleServerBundle\Batch\BatchRunner;
 final class BatchRunnerItemEndedSuccessfully extends BatchRunnerItemEnded
 {
     public function __construct(
-        public readonly BatchRunner $batchRunner,
-        public readonly string $key,
+        BatchRunner $batchRunner,
+        string $key,
     ) {
         parent::__construct($batchRunner, $key, true);
     }
