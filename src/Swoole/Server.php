@@ -7,11 +7,13 @@ namespace OpenSwooleServerBundle\Swoole;
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
 use OpenSwoole\Server\Task;
+use OpenSwoole\Timer;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
 use OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponseCode;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpKernel\TerminableInterface;
@@ -82,6 +84,8 @@ class Server
      */
     private $taskWorkerRunning = false;
 
+    private readonly EventLoopLagProvider $eventLoopLagProvider;
+
     public function __construct(
         string $host,
         int $port,
@@ -101,11 +105,12 @@ class Server
         $this->kernel = $kernel;
         $this->logger = $logger;
         $this->workerMutexPool = null === $workerMutexPool && CoroutineHelper::openswooleEnabled()
-                ? new WorkerMutexPool()
-                : $workerMutexPool;
+            ? new WorkerMutexPool()
+            : $workerMutexPool;
         $this->useSyncWorker = $useSyncWorker;
         $this->taskHandler = $taskHandler;
         $this->taskFinishHandler = $taskFinishHandler;
+        $this->eventLoopLagProvider = new EventLoopLagProvider();
     }
 
     public function getHost(): string
@@ -277,8 +282,22 @@ class Server
 
     private function symfonyBridge(callable $onStart, callable|null $onShutdown = null): void
     {
-        $this->server->on('start', static function () use ($onStart) {
+        $eventLoopLagProvider = $this->eventLoopLagProvider;
+
+        $this->server->on('start', static function () use ($onStart, $eventLoopLagProvider) {
             $onStart('Server started!');
+
+            Timer::tick(1000, static function () use ($eventLoopLagProvider) {
+                static $lastTime = 0;
+                $currentTime = microtime(true);
+                if ($lastTime > 0) {
+                    /** @var float $eventLoopLag */
+                    $eventLoopLag = ($currentTime - $lastTime - 1) * 1000;
+                    $eventLoopLagProvider->setEventLoopLag($eventLoopLag);
+                }
+
+                $lastTime = $currentTime;
+            });
         });
 
         if ($this->taskHandler !== null) {
@@ -329,7 +348,7 @@ class Server
                 if ($swResponse->isWritable()) {
                     $swResponse->status(500);
                     $swResponse->end(json_encode([
-                        'code' => 500,
+                        'code' => SymfonyResponseCode::HTTP_INTERNAL_SERVER_ERROR,
                         'message' => $throwable->getMessage(),
                     ]));
                 }
@@ -344,7 +363,7 @@ class Server
         $this->server->start();
     }
 
-    public function stats(int $mode = 0)
+    public function stats(int $mode = 0): array|false|string
     {
         return $this->server->stats($mode);
     }
@@ -362,5 +381,10 @@ class Server
     public function isCreated(): bool
     {
         return isset($this->server);
+    }
+
+    public function getCurrentLoopLag(): float
+    {
+        return $this->eventLoopLagProvider->getEventLoopLag();
     }
 }
