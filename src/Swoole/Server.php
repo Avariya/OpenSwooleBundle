@@ -9,9 +9,12 @@ use OpenSwoole\Runtime;
 use OpenSwoole\Server\Task;
 use OpenSwoole\Timer;
 use OpenSwoole\Util;
+use OpenSwooleServerBundle\Event\Server\ServerTaskEnded;
+use OpenSwooleServerBundle\Event\Server\ServerTaskStarted;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
 use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
 use OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponseCode;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -97,6 +100,7 @@ class Server
         bool $useSyncWorker = true,
         TaskHandlerInterface|null $taskHandler = null,
         TaskFinishHandlerInterface|null $taskFinishHandler = null,
+        private EventDispatcherInterface|null $eventDispatcher = null,
     ) {
         $this->host = $host;
         $this->port = $port;
@@ -301,7 +305,11 @@ class Server
         });
 
         if ($this->taskHandler !== null) {
-            $this->server->on('task', fn (\OpenSwoole\HTTP\Server $server, Task $task) => $this->taskHandler->handle($this->server, $task));
+            $this->server->on('task', function (\OpenSwoole\HTTP\Server $server, Task $task) {
+                $this->eventDispatcher->dispatch(new ServerTaskStarted($task));
+                $this->taskHandler->handle($this->server, $task);
+                $this->eventDispatcher->dispatch(new ServerTaskEnded($task));
+            });
         }
 
         if ($this->taskFinishHandler !== null) {
