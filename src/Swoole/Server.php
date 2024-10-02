@@ -87,8 +87,6 @@ class Server
      */
     private $taskWorkerRunning = false;
 
-    private readonly EventLoopLagProvider $eventLoopLagProvider;
-
     public function __construct(
         string $host,
         int $port,
@@ -114,7 +112,6 @@ class Server
         $this->useSyncWorker = $useSyncWorker;
         $this->taskHandler = $taskHandler;
         $this->taskFinishHandler = $taskFinishHandler;
-        $this->eventLoopLagProvider = new EventLoopLagProvider();
     }
 
     public function getHost(): string
@@ -286,22 +283,9 @@ class Server
 
     private function symfonyBridge(callable $onStart, callable|null $onShutdown = null): void
     {
-        $eventLoopLagProvider = $this->eventLoopLagProvider;
 
-        $this->server->on('start', static function () use ($onStart, $eventLoopLagProvider) {
+        $this->server->on('start', static function () use ($onStart) {
             $onStart('Server started!');
-
-            Timer::tick(1000, static function () use ($eventLoopLagProvider) {
-                static $lastTime = 0;
-                $currentTime = microtime(true);
-                if ($lastTime > 0) {
-                    /** @var float $eventLoopLag */
-                    $eventLoopLag = ($currentTime - $lastTime - 1) * 1000;
-                    $eventLoopLagProvider->setEventLoopLag($eventLoopLag);
-                }
-
-                $lastTime = $currentTime;
-            });
         });
 
         if ($this->taskHandler !== null) {
@@ -389,10 +373,5 @@ class Server
     public function isCreated(): bool
     {
         return isset($this->server);
-    }
-
-    public function getCurrentLoopLag(): float
-    {
-        return $this->eventLoopLagProvider->getEventLoopLag();
     }
 }
