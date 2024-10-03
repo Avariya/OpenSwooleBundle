@@ -69,7 +69,7 @@ class Configuration implements ConfigurationInterface
                             ->defaultValue(0)
                         ->end()
                         ->variableNode('max_wait_time')
-                            ->defaultValue(10)
+                            ->defaultValue(3)
                         ->end()
                         ->variableNode('open_cpu_affinity')->end()
                         ->variableNode('enable_reuse_port')->end()
