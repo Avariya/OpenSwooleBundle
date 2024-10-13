@@ -32,7 +32,9 @@ class ContainerSubscriber implements EventSubscriberInterface
     public function clear(): void
     {
         foreach ($this->services as $service) {
-            $service->reset();
+            if ($service instanceof ResetInterface) {
+                $service->reset();
+            }
         }
     }
 }
