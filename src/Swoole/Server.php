@@ -7,7 +7,6 @@ namespace OpenSwooleServerBundle\Swoole;
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
 use OpenSwoole\Server\Task;
-use OpenSwoole\Timer;
 use OpenSwoole\Util;
 use OpenSwooleServerBundle\Event\Server\ServerTaskEnded;
 use OpenSwooleServerBundle\Event\Server\ServerTaskStarted;
@@ -81,11 +80,6 @@ class Server
      * @var TaskFinishHandlerInterface|null
      */
     private $taskFinishHandler;
-
-    /**
-     * @var bool
-     */
-    private $taskWorkerRunning = false;
 
     public function __construct(
         string $host,
@@ -283,7 +277,6 @@ class Server
 
     private function symfonyBridge(callable $onStart, callable|null $onShutdown = null): void
     {
-
         $this->server->on('start', static function () use ($onStart) {
             $onStart('Server started!');
         });
@@ -365,13 +358,22 @@ class Server
         return $this->useSyncWorker && CoroutineHelper::inCoroutine();
     }
 
-    public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int
+    public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int|null
     {
-        return $this->server?->task($data, $dstWorkerId, $finishCallback) ?? 0;
-    }
+        if (!isset($this->server) || !$this->isRunning()) {
+            return null;
+        }
 
-    public function isCreated(): bool
-    {
-        return isset($this->server);
+        if ($this->server->taskworker) {
+            return null;
+        }
+
+        $taskId = $this->server->task($data, $dstWorkerId, $finishCallback);
+
+        if ($taskId === false) {
+            return null;
+        }
+
+        return $taskId;
     }
 }
