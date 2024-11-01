@@ -29,11 +29,11 @@ final readonly class OpenSwooleServerTaskTransport implements TransportInterface
 
         $envelope = $envelope->with(new ReceivedStamp($alias));
 
-        if (!$this->server->isCreated()) {
+        $taskId = $this->server->task($envelope);
+
+        if ($taskId === null) {
             return $this->messageBus->dispatch($envelope);
         }
-
-        $this->server->task($envelope);
 
         return $envelope;
     }
