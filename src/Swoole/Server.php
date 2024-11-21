@@ -358,6 +358,11 @@ class Server
         return $this->useSyncWorker && CoroutineHelper::inCoroutine();
     }
 
+    public function getActiveClientsCount(): int
+    {
+        return is_array($this->server->getClientList()) ? count($this->server->getClientList()) : 0;
+    }
+
     public function task(mixed $data, int $dstWorkerId = -1, callable|null $finishCallback = null): int|null
     {
         if (!isset($this->server) || !$this->isRunning()) {
