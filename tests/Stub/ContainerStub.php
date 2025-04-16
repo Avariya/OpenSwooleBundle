@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSwooleServerBundle\Tests\Stub;
 
 use Psr\Container\ContainerInterface;
-use Psr\Container\NotFoundExceptionInterface;
+use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 
 final class ContainerStub implements ContainerInterface
 {
@@ -17,7 +17,7 @@ final class ContainerStub implements ContainerInterface
     public function get(string $id): mixed
     {
         if (!isset($this->services[$id])) {
-            throw new NotFoundExceptionInterface(sprintf('Service %s not found', $id));
+            throw new ServiceNotFoundException(sprintf('Service %s not found', $id));
         }
 
         return $this->services[$id];

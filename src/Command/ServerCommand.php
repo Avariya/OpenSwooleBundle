@@ -7,9 +7,6 @@ namespace OpenSwooleServerBundle\Command;
 use OpenSwooleServerBundle\Swoole\Server;
 use Symfony\Component\Console\Command\Command;
 
-/**
- * Class ServerCommand
- */
 abstract class ServerCommand extends Command
 {
     /**
@@ -17,11 +14,7 @@ abstract class ServerCommand extends Command
      */
     protected $server;
 
-    /**
-     * @param Server      $server
-     * @param string|null $name
-     */
-    public function __construct(Server $server, string $name = null)
+    public function __construct(Server $server, string|null $name = null)
     {
         $this->server = $server;
         parent::__construct($name);

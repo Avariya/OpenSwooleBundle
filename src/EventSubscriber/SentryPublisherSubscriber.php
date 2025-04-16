@@ -8,15 +8,15 @@ use Sentry\ClientInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-class SentryPublisherSubscriber implements EventSubscriberInterface
+final readonly class SentryPublisherSubscriber implements EventSubscriberInterface
 {
-    private ClientInterface $client;
-
-    public function __construct(ClientInterface $client)
+    public function __construct(private ClientInterface $client)
     {
-        $this->client = $client;
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public static function getSubscribedEvents(): array
     {
         return [

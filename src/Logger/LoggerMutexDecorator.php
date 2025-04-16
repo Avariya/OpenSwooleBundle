@@ -23,6 +23,9 @@ final class LoggerMutexDecorator implements HandlerInterface, ProcessableHandler
     ) {
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function isHandling(LogRecord $record): bool
     {
         return $this->handler->isHandling($record);
@@ -43,11 +46,17 @@ final class LoggerMutexDecorator implements HandlerInterface, ProcessableHandler
         $this->once(fn () => $this->handler->close());
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function pushProcessor(callable $callback): HandlerInterface
     {
-        return $this->handler->popProcessor($callback);
+        return $this->handler->pushProcessor($callback);
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function popProcessor(): callable
     {
         return $this->handler->popProcessor();
@@ -58,6 +67,9 @@ final class LoggerMutexDecorator implements HandlerInterface, ProcessableHandler
         $this->once(fn () => $this->handler->reset());
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function setFormatter(FormatterInterface $formatter): HandlerInterface
     {
         $this->handler->setFormatter($formatter);
@@ -65,6 +77,9 @@ final class LoggerMutexDecorator implements HandlerInterface, ProcessableHandler
         return $this;
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function getFormatter(): FormatterInterface
     {
         return $this->handler->getFormatter();

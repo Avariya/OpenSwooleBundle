@@ -4,31 +4,23 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\EventSubscriber;
 
-use Symfony\Bridge\Doctrine\ManagerRegistry;
+use Doctrine\ODM\MongoDB\DocumentManager;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Listen for the request finish event and clear object manager
+ * Listen for the request finish event and clear object manager.
  */
-class DoctrineCleaner implements EventSubscriberInterface
+final readonly class DoctrineCleaner implements EventSubscriberInterface
 {
-    /**
-     * @var ManagerRegistry;
-     */
-    private $registry;
-
-    /**
-     * @param ManagerRegistry $registry
-     */
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(private readonly ManagerRegistry $registry)
     {
-        $this->registry = $registry;
     }
 
     /**
-     * @return array
+     * @codeCoverageIgnore
      */
     public static function getSubscribedEvents(): array
     {
@@ -42,7 +34,13 @@ class DoctrineCleaner implements EventSubscriberInterface
     public function clear(): void
     {
         foreach ($this->registry->getManagers() as $name => $manager) {
-            $manager->isOpen()
+            $open = false;
+
+            if ($manager instanceof EntityManagerInterface || $manager instanceof DocumentManager) {
+                $open = $manager->isOpen();
+            }
+
+            $open
                 ? $manager->clear()
                 : $this->registry->resetManager($name);
         }

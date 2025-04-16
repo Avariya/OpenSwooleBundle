@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Swoole;
 
+use Closure;
+use OpenSwoole\Core\Psr\Response as OpenSwooleResponse;
+use OpenSwoole\Core\Psr\ServerRequest;
 use OpenSwoole\Process;
 use OpenSwoole\Runtime;
 use OpenSwoole\Server\Task;
-use OpenSwoole\Util;
 use OpenSwooleServerBundle\Event\Server\ServerTaskEnded;
 use OpenSwooleServerBundle\Event\Server\ServerTaskStarted;
 use OpenSwooleServerBundle\Exception\OpenSwooleException;
@@ -15,6 +17,8 @@ use OpenSwooleServerBundle\Swoole\Handler\TaskFinishHandlerInterface;
 use OpenSwooleServerBundle\Swoole\Handler\TaskHandlerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Bridge\PsrHttpMessage\HttpFoundationFactoryInterface;
+use Symfony\Bridge\PsrHttpMessage\HttpMessageFactoryInterface;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponseCode;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -81,6 +85,8 @@ class Server
      */
     private $taskFinishHandler;
 
+    private Closure|null $onShutdown = null;
+
     public function __construct(
         string $host,
         int $port,
@@ -88,8 +94,9 @@ class Server
         int $hookFlags,
         HttpKernelInterface $kernel,
         LoggerInterface $logger,
-        WorkerMutexPool|null $workerMutexPool = null,
-        bool $useSyncWorker = true,
+        bool $useSyncWorker,
+        private HttpFoundationFactoryInterface $symfonyRequestFactory,
+        private HttpMessageFactoryInterface $psrFactory,
         TaskHandlerInterface|null $taskHandler = null,
         TaskFinishHandlerInterface|null $taskFinishHandler = null,
         private EventDispatcherInterface|null $eventDispatcher = null,
@@ -100,9 +107,9 @@ class Server
         $this->hookFlags = $hookFlags;
         $this->kernel = $kernel;
         $this->logger = $logger;
-        $this->workerMutexPool = null === $workerMutexPool && CoroutineHelper::openswooleEnabled()
+        $this->workerMutexPool = CoroutineHelper::openswooleEnabled()
             ? new WorkerMutexPool()
-            : $workerMutexPool;
+            : null;
         $this->useSyncWorker = $useSyncWorker;
         $this->taskHandler = $taskHandler;
         $this->taskFinishHandler = $taskFinishHandler;
@@ -202,9 +209,7 @@ class Server
             return false;
         }
 
-        Process::kill($pid, 0);
-
-        return !Util::getLastErrorCode();
+        return Process::kill($pid, 0);
     }
 
     /**
@@ -277,20 +282,26 @@ class Server
 
     private function symfonyBridge(callable $onStart, callable|null $onShutdown = null): void
     {
+        $onShutdown ??= $this->onShutdown;
+
         $this->server->on('start', static function () use ($onStart) {
             $onStart('Server started!');
         });
 
         if ($this->taskHandler !== null) {
             $this->server->on('task', function (\OpenSwoole\HTTP\Server $server, Task $task) {
-                $this->eventDispatcher->dispatch(new ServerTaskStarted($task));
+                $this->eventDispatcher?->dispatch(new ServerTaskStarted($task));
                 $this->taskHandler->handle($this->server, $task);
-                $this->eventDispatcher->dispatch(new ServerTaskEnded($task));
+                $this->eventDispatcher?->dispatch(new ServerTaskEnded($task));
             });
         }
 
         if ($this->taskFinishHandler !== null) {
-            $this->server->on('finish', fn (\OpenSwoole\HTTP\Server $server, int $taskId, mixed $data) => $this->taskFinishHandler->handle($this->server, $taskId, $data));
+            $this->server->on(
+                'finish',
+                fn (\OpenSwoole\HTTP\Server $server, int $taskId, mixed $data) =>
+                    $this->taskFinishHandler->handle($this->server, $taskId, $data),
+            );
         }
 
         if ($onShutdown !== null) {
@@ -301,27 +312,23 @@ class Server
             $this->server->on('WorkerStart', function (\OpenSwoole\HTTP\Server $server, int $workerId) {
                 $this->needSyncWorker() && $this->workerMutexPool?->create($workerId);
             });
-
-            $this->server->on('WorkerStop', function (\OpenSwoole\HTTP\Server $server, int $workerId) {
-                $this->needSyncWorker() && $this->workerMutexPool?->remove($workerId);
-            });
         }
 
-        // request
-        $this->server->on('request', function (\OpenSwoole\Http\Request $swRequest, \OpenSwoole\Http\Response $swResponse) {
-            $mutex = $this->needSyncWorker() ? $this->workerMutexPool?->getOrCreate($this->server->getWorkerId()) : null;
-
+        $this->server->on('request', function (\OpenSwoole\HTTP\Request $request, \OpenSwoole\HTTP\Response $response) {
+            $mutex = $this->needSyncWorker()
+                ? $this->workerMutexPool?->getOrCreate($this->server->getWorkerId())
+                : null;
             $mutex?->lock();
 
+            $serverRequest = ServerRequest::from($request);
+            $sfRequest = $this->symfonyRequestFactory->createRequest($serverRequest);
+
             try {
-                $sfRequest = Request::toSymfony($swRequest);
                 $sfResponse = $this->kernel->handle($sfRequest);
 
-                Response::toSwoole($swResponse, $sfResponse);
+                $psrResponse = $this->psrFactory->createResponse($sfResponse);
 
-                if ($this->kernel instanceof TerminableInterface) {
-                    $this->kernel->terminate($sfRequest, $sfResponse);
-                }
+                OpenSwooleResponse::emit($response, $psrResponse);
             } catch (\Throwable $throwable) {
                 $this->logger->error($throwable->getMessage(), [
                     'class' => $throwable::class,
@@ -330,14 +337,18 @@ class Server
                     'trace' => $throwable->getTrace(),
                 ]);
 
-                if ($swResponse->isWritable()) {
-                    $swResponse->status(500);
-                    $swResponse->end(json_encode([
+                if ($response->isWritable()) {
+                    $response->end(json_encode([
                         'code' => SymfonyResponseCode::HTTP_INTERNAL_SERVER_ERROR,
                         'message' => $throwable->getMessage(),
                     ]));
+                    $response->status(SymfonyResponseCode::HTTP_INTERNAL_SERVER_ERROR);
                 }
             } finally {
+                if ($this->kernel instanceof TerminableInterface) {
+                    $this->kernel->terminate($sfRequest, $sfResponse);
+                }
+
                 $mutex?->unlock();
             }
         });
@@ -380,5 +391,10 @@ class Server
         }
 
         return $taskId;
+    }
+
+    public function setOnShutdown(Closure $onShutdown): void
+    {
+        $this->onShutdown = $onShutdown;
     }
 }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\Event\Server;
 
-use OpenSwooleServerBundle\Event\OpenSwooleEvent;
 use OpenSwoole\Server\Task;
+use OpenSwooleServerBundle\Event\OpenSwooleEvent;
 
 final class ServerTaskEnded extends OpenSwooleEvent
 {

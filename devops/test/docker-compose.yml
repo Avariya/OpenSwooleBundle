@@ -1,0 +1,14 @@
+services:
+  lib:
+    container_name: lib
+    tty: true
+    privileged: true
+    stdin_open: true
+    command:
+      - bash
+      - -c
+    build:
+      context: ../../
+      dockerfile: devops/build/lib/Dockerfile
+    volumes:
+      - ./../../reports:/var/www/lib/reports
