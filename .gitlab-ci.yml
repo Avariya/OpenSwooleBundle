@@ -1,0 +1,8 @@
+variables:
+  TEST_COMPOSE: "true"
+  TEST_CMD: bash ./devops/bin/test.sh
+  PHP_CODE_QUALITY_IMAGE: fozzyua/docker-php-code-quality-image:v1.1.10-php8.3.11
+  PHP_CODE_QUALITY_STRICT_CHECKS: "PHPCPD,PHPCSFIXER"
+include:
+  - project: 'common/devops/templates/gitlab-templates'
+    file: 'php-lib/.gitlab-ci.yaml'

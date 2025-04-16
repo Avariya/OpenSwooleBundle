@@ -20,6 +20,9 @@ class ContainerSubscriber implements EventSubscriberInterface
         $this->services = $services instanceof \Traversable ? iterator_to_array($services) : $services;
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public static function getSubscribedEvents(): array
     {
         return [

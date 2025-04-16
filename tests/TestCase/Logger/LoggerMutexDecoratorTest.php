@@ -53,9 +53,16 @@ final class LoggerMutexDecoratorTest extends TestCase
         $logger->debug('log after runner');
 
         $logContent = file_get_contents(self::TEST_LOG_FILE);
-        self::assertStringEndsWith("log after runner\n", $logContent);
-        self::assertStringContainsString('log #1', $logContent);
-        self::assertStringContainsString('log #2', $logContent);
+
+        self::assertSame(
+            <<<TEXT
+        log #2
+        log #1
+        log after runner
+
+        TEXT,
+            $logContent,
+        );
     }
 
     private function createLogger(): LoggerInterface

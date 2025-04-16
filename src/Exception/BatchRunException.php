@@ -17,7 +17,11 @@ final class BatchRunException extends RuntimeException
     ) {
         assert(!empty($throwables), '$throwables are empty.');
         $first = $throwables[array_key_first($throwables)];
-        $message = sprintf('Batch run resulted with %d exception(s). The first is: %s', count($throwables), $first->getMessage());
+        $message = sprintf(
+            'Batch run resulted with %d exception(s). The first is: %s',
+            count($throwables),
+            $first->getMessage(),
+        );
         parent::__construct($message, $first->getCode(), $first->getPrevious());
     }
 

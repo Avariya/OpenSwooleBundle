@@ -39,18 +39,4 @@ final class WorkerMutexPool
 
         return $chan;
     }
-
-    public function remove(string|int $workerId): void
-    {
-        $this->mutex->lock();
-        if (!array_key_exists($workerId, $this->pool)) {
-            $this->mutex->unlock();
-
-            return;
-        }
-
-        $chan = $this->pool[$workerId];
-        unset($this->pool[$workerId]);
-        $this->mutex->unlock();
-    }
 }

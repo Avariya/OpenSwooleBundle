@@ -4,34 +4,23 @@ declare(strict_types=1);
 
 namespace OpenSwooleServerBundle\EventSubscriber;
 
-use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use OpenSwooleServerBundle\Swoole\Server;
+use PhpAmqpLib\Exception\AMQPExceptionInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * ExceptionSubscriber
+ * ExceptionSubscriber.
  */
-class AMQPReconnectSubscriber implements EventSubscriberInterface
+final readonly class AMQPReconnectSubscriber implements EventSubscriberInterface
 {
-    /**
-     * @var Server
-     */
-    private $server;
-
-    /**
-     * ExceptionSubscriber constructor.
-     * @param Server $server
-     */
-    public function __construct(Server $server)
+    public function __construct(private Server $server)
     {
-        $this->server = $server;
     }
 
-
     /**
-     * @return array
+     * @codeCoverageIgnore
      */
     public static function getSubscribedEvents(): array
     {
@@ -41,8 +30,6 @@ class AMQPReconnectSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param ExceptionEvent $event
-     *
      * @throws \Exception
      */
     public function onKernelException(ExceptionEvent $event)

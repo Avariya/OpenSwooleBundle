@@ -12,7 +12,7 @@ class BatchRunnerItemEnded extends OpenSwooleEvent
     public function __construct(
         public readonly BatchRunner $batchRunner,
         public readonly string $key,
-        public readonly bool $success
+        public readonly bool $success,
     ) {
     }
 }

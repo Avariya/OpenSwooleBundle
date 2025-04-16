@@ -8,27 +8,16 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-/**
- * Class ReloadCommand
- */
 class ReloadCommand extends ServerCommand
 {
-    /**
-     * {@inheritdoc}
-     */
     protected function configure()
     {
         $this
             ->setName('openswoole:server:reload')
-            ->setDescription('Reload OpenSwoole HTTP Server.');
+            ->setDescription('Reload OpenSwoole HTTP Server.')
+        ;
     }
 
-    /**
-     * @param InputInterface  $input
-     * @param OutputInterface $output
-     *
-     * @return int
-     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $style = new SymfonyStyle($input, $output);
