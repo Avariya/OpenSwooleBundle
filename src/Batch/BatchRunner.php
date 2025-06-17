@@ -50,6 +50,22 @@ final class BatchRunner
         return new self(new Channel(count($callables)), $callables);
     }
 
+    /**
+     * Each item of arguments array must contain array of arguments to callable.
+     *
+     * @see OpenSwooleServerBundle\Tests\TestCase\BatchRunner\BatchRunnerTest::testConcurrently()
+     */
+    public static function concurrently(callable $callable, array $arguments): self
+    {
+        $callables = [];
+
+        foreach ($arguments as $key => $callableArguments) {
+            $callables[$key] = static fn () => $callable(...$callableArguments);
+        }
+
+        return self::fromCallables($callables);
+    }
+
     public function withDispatcher(EventDispatcherInterface $eventDispatcher): self
     {
         $this->ensureNotStarted();

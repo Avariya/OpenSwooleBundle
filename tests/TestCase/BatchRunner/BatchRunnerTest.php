@@ -43,6 +43,29 @@ final class BatchRunnerTest extends TestCase
         );
     }
 
+    public function testConcurrently(): void
+    {
+        $data = [];
+
+        $callable = static fn (string $param1, int $param2, array $param3 = []): string
+            => sprintf('Got params: %s, %d, %s', $param1, $param2, json_encode($param3));
+
+        $arguments = [
+            'someKey1' => ['value1', 2, ['arrayItem1' => 'arrayValue1']],
+            'someKey2' => ['otherValue1', 22],
+        ];
+
+        $data = BatchRunner::concurrently($callable, $arguments)->runAll();
+
+        self::assertSame(
+            [
+                'someKey1' => 'Got params: value1, 2, {"arrayItem1":"arrayValue1"}',
+                'someKey2' => 'Got params: otherValue1, 22, []',
+            ],
+            $data,
+        );
+    }
+
     public function testRunAllNotInCoroutine(): void
     {
         $data = [];
